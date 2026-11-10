@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · Kadisco ERP{% endblock %}
+{% block page_title %}Procurement Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Material Requests</h1>
+    <p>Simulated end-to-end workflow across Production, Procurement, Management, Warehouse and Finance.</p>
+  </div>
+  <button class="btn btn--primary js-new">+ New Material Request</button>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi">
+    <span class="kpi-value">{{ stats.total }}</span>
+    <span class="kpi-label">Total Requests</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-value">{{ stats.open }}</span>
+    <span class="kpi-label">Open / In Progress</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-value">{{ stats.awaiting_approval }}</span>
+    <span class="kpi-label">Pending Approval</span>
+  </div>
+  <div class="kpi">
+    <span class="kpi-value">{{ stats.completed }}</span>
+    <span class="kpi-label">Completed</span>
+  </div>
+</div>
+
+<section class="card" id="requests">
+  <div class="card-head card-head--row">
+    <h2>All Requests</h2>
+    <span class="count-pill">{{ requests|length }}</span>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Req ID</th>
+          <th>Material</th>
+          <th>Qty</th>
+          <th>Supplier</th>
+          <th>Price</th>
+          <th>Stage</th>
+          <th>Procurement</th>
+          <th>Mgmt Approval</th>
+          <th>Warehouse</th>
+          <th>Finance</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in requests %}
+        <tr>
+          <td class="mono">#{{ r['request_id'] }}</td>
+          <td class="cell-strong">{{ r['material_name'] }}</td>
+          <td class="mono">{{ r['quantity'] }}</td>
+          <td>{{ r['supplier_name'] or '—' }}</td>
+          <td class="mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</td>
+          <td><span class="badge badge--stage">{{ r['stage'] }}</span></td>
+          <td><span class="badge {{ r['procurement_status']|status_class }}">{{ r['procurement_status'] }}</span></td>
+          <td><span class="badge {{ r['management_approval_status']|status_class }}">{{ r['management_approval_status'] }}</span></td>
+          <td><span class="badge {{ r['warehouse_status']|status_class }}">{{ r['warehouse_status'] }}</span></td>
+          <td><span class="badge {{ r['finance_payment_status']|status_class }}">{{ r['finance_payment_status'] }}</span></td>
+          <td class="col-actions">
+            <a class="btn btn--sm btn--primary" href="{{ url_for('main.request_detail', request_id=r['request_id']) }}">Open</a>
+            <form class="inline-form" method="post"
+                  action="{{ url_for('main.delete_request', request_id=r['request_id']) }}"
+                  onsubmit="return confirm('Delete request #{{ r['request_id'] }}?');">
+              <button class="btn btn--sm btn--ghost" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="11" class="empty-state">
+            No requests yet. Use “New Material Request” to simulate a Production input.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- New request modal (simulated Production input) -->
+<dialog id="new-dialog" class="modal">
+  <form method="post" action="{{ url_for('main.create_request') }}">
+    <h3>New Material Request</h3>
+    <p class="modal-hint">Simulates a request raised by the <strong>Production</strong> department.
+      All statuses start as <strong>Pending</strong>.</p>
+    <div class="field">
+      <label for="material_name">Material Name</label>
+      <input id="material_name" name="material_name" type="text" placeholder="e.g. Cotton Fabric 40s" required />
+    </div>
+    <div class="field">
+      <label for="quantity">Quantity</label>
+      <input id="quantity" name="quantity" type="number" min="1" step="1" placeholder="e.g. 500" required />
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost js-close-new">Cancel</button>
+      <button type="submit" class="btn btn--primary">Submit Request</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  const newDialog = document.getElementById('new-dialog');
+  document.querySelector('.js-new').addEventListener('click', () => newDialog.showModal());
+  document.querySelector('.js-close-new').addEventListener('click', () => newDialog.close());
+</script>
+{% endblock %}

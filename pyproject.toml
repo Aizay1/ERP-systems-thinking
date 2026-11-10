@@ -1,0 +1,11 @@
+[project]
+name = "kadisco-procurement"
+version = "0.1.0"
+description = "Procurement Department CRUD web app for Kadisco Manufacturing"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+]
+
+[tool.uv]
+package = false

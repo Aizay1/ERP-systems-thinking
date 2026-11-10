@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Request #{{ r['request_id'] }} · Kadisco ERP{% endblock %}
+{% block page_title %}Material Request{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb">
+  <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+  <span class="crumb-sep">/</span>
+  <span>Request #{{ r['request_id'] }}</span>
+</nav>
+
+<div class="page-head">
+  <div>
+    <h1>{{ r['material_name'] }} <span class="muted mono">#{{ r['request_id'] }}</span></h1>
+    <p>Quantity {{ r['quantity'] }} · Stage
+      <span class="badge badge--stage">{{ r['stage'] }}</span>
+    </p>
+  </div>
+  <form method="post" action="{{ url_for('main.delete_request', request_id=r['request_id']) }}"
+        onsubmit="return confirm('Delete this request?');">
+    <button class="btn btn--ghost" type="submit">Delete Request</button>
+  </form>
+</div>
+
+<div class="detail-grid">
+  <!-- Workflow timeline -->
+  <section class="card">
+    <div class="card-head"><h2>Workflow Timeline</h2></div>
+    <ol class="timeline">
+      {% for stage in stages %}
+        {% set i = loop.index0 %}
+        <li class="timeline-item {{ 'is-done' if i < current_index else 'is-current' if i == current_index else 'is-upcoming' }}">
+          <span class="timeline-marker">{% if i < current_index %}✓{% else %}{{ loop.index }}{% endif %}</span>
+          <div class="timeline-body">
+            <span class="timeline-title">{{ stage }}</span>
+            <span class="timeline-desc">{{ descriptions[stage] }}</span>
+          </div>
+        </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <div class="detail-side">
+    <!-- Request facts -->
+    <section class="card">
+      <div class="card-head"><h2>Request Details</h2></div>
+      <dl class="detail-list">
+        <div><dt>Material</dt><dd>{{ r['material_name'] }}</dd></div>
+        <div><dt>Quantity</dt><dd class="mono">{{ r['quantity'] }}</dd></div>
+        <div><dt>Supplier</dt><dd>{{ r['supplier_name'] or '—' }}</dd></div>
+        <div><dt>Price</dt><dd class="mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</dd></div>
+        <div><dt>Created</dt><dd class="mono">{{ r['created_at'] }}</dd></div>
+      </dl>
+    </section>
+
+    <!-- Read-only department statuses -->
+    <section class="card">
+      <div class="card-head"><h2>Department Status</h2></div>
+      <dl class="detail-list">
+        <div><dt>Procurement</dt><dd><span class="badge {{ r['procurement_status']|status_class }}">{{ r['procurement_status'] }}</span></dd></div>
+        <div><dt>Management Approval</dt><dd><span class="badge {{ r['management_approval_status']|status_class }}">{{ r['management_approval_status'] }}</span></dd></div>
+        <div><dt>Warehouse</dt><dd><span class="badge {{ r['warehouse_status']|status_class }}">{{ r['warehouse_status'] }}</span></dd></div>
+        <div><dt>Finance Payment</dt><dd><span class="badge {{ r['finance_payment_status']|status_class }}">{{ r['finance_payment_status'] }}</span></dd></div>
+      </dl>
+    </section>
+
+    <!-- Current action (depends on stage) -->
+    <section class="card action-card">
+      <div class="card-head"><h2>Action Required</h2></div>
+
+      {% if r['stage'] == 'Requested' %}
+        <p class="action-note">Production raised this request. Procurement can now begin sourcing.</p>
+        <form method="post" action="{{ url_for('main.start_quoting', request_id=r['request_id']) }}">
+          <button class="btn btn--primary btn--block" type="submit">Start Quoting</button>
+        </form>
+
+      {% elif r['stage'] == 'Quoting' %}
+        <p class="action-note">Capture the chosen supplier and the quoted price.</p>
+        <form method="post" action="{{ url_for('main.send_for_approval', request_id=r['request_id']) }}">
+          <div class="field">
+            <label for="supplier_name">Supplier Name</label>
+            <input id="supplier_name" name="supplier_name" type="text"
+                   value="{{ r['supplier_name'] or '' }}" placeholder="e.g. Addis Textiles PLC" required />
+          </div>
+          <div class="field">
+            <label for="price">Price</label>
+            <input id="price" name="price" type="number" min="0" step="0.01"
+                   value="{{ r['price'] if r['price'] is not none else '' }}" placeholder="e.g. 25000" required />
+          </div>
+          <button class="btn btn--primary btn--block" type="submit">Send for Approval</button>
+        </form>
+
+      {% elif r['stage'] == 'Pending Approval' %}
+        <p class="action-note">Waiting on management sign-off before a purchase order can be raised.</p>
+        <form method="post" action="{{ url_for('main.simulate_management_approval', request_id=r['request_id']) }}">
+          <button class="btn btn--mock btn--block" type="submit">[Simulate Management Approval]</button>
+        </form>
+
+      {% elif r['stage'] == 'PO Issued' %}
+        <p class="action-note">Quote approved. Raise the purchase order to the supplier.</p>
+        <form method="post" action="{{ url_for('main.issue_purchase_order', request_id=r['request_id']) }}">
+          <button class="btn btn--primary btn--block" type="submit">Issue Purchase Order</button>
+        </form>
+
+      {% elif r['stage'] == 'In Transit' %}
+        <p class="action-note">Purchase order issued. Awaiting delivery at the warehouse.</p>
+        <form method="post" action="{{ url_for('main.simulate_warehouse_receipt', request_id=r['request_id']) }}">
+          <button class="btn btn--mock btn--block" type="submit">[Simulate Warehouse Receipt]</button>
+        </form>
+
+      {% elif r['stage'] == 'Invoicing' %}
+        <p class="action-note">Goods received and verified. Awaiting finance settlement.</p>
+        <form method="post" action="{{ url_for('main.simulate_finance_payment', request_id=r['request_id']) }}">
+          <button class="btn btn--mock btn--block" type="submit">[Simulate Finance Payment]</button>
+        </form>
+
+      {% else %}
+        <p class="action-note action-note--done">✓ Workflow complete — payment settled and the request is closed.</p>
+      {% endif %}
+
+      <div class="legend">
+        <span class="legend-item"><span class="swatch swatch--primary"></span> Procurement action</span>
+        <span class="legend-item"><span class="swatch swatch--mock"></span> External system trigger</span>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}
