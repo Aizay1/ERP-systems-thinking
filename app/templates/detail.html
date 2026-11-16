@@ -1,70 +1,166 @@
 {% extends "base.html" %}
 {% block title %}Request #{{ r['request_id'] }} · Kadisco ERP{% endblock %}
-{% block page_title %}Material Request{% endblock %}
+{% block page_title %}Purchase Document{% endblock %}
 
 {% block content %}
+{% set is_po = r['management_approval_status'] == 'Approved' %}
+{% set doc_type = 'Purchase Order' if is_po else 'Purchase Requisition' %}
+{% set doc_no = ('PO-' if is_po else 'PR-') ~ '%04d'|format(r['request_id']) %}
+
 <nav class="breadcrumb">
   <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
   <span class="crumb-sep">/</span>
-  <span>Request #{{ r['request_id'] }}</span>
+  <span>{{ doc_no }}</span>
 </nav>
 
-<div class="page-head">
-  <div>
-    <h1>{{ r['material_name'] }} <span class="muted mono">#{{ r['request_id'] }}</span></h1>
-    <p>Quantity {{ r['quantity'] }} · Stage
-      <span class="badge badge--stage">{{ r['stage'] }}</span>
-    </p>
+<div class="doc-page">
+  <div class="doc-toolbar">
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('main.dashboard') }}">‹ Back to Dashboard</a>
+    <div class="doc-toolbar-right">
+      <form method="post" action="{{ url_for('main.delete_request', request_id=r['request_id']) }}"
+            onsubmit="return confirm('Delete this document?');">
+        <button class="btn btn--ghost btn--sm" type="submit">Delete</button>
+      </form>
+      <button type="button" class="btn btn--primary btn--sm" id="download-pdf">⤓ Download as PDF</button>
+    </div>
   </div>
-  <form method="post" action="{{ url_for('main.delete_request', request_id=r['request_id']) }}"
-        onsubmit="return confirm('Delete this request?');">
-    <button class="btn btn--ghost" type="submit">Delete Request</button>
-  </form>
-</div>
 
-<div class="detail-grid">
-  <!-- Workflow timeline -->
-  <section class="card">
-    <div class="card-head"><h2>Workflow Timeline</h2></div>
-    <ol class="timeline">
-      {% for stage in stages %}
-        {% set i = loop.index0 %}
-        <li class="timeline-item {{ 'is-done' if i < current_index else 'is-current' if i == current_index else 'is-upcoming' }}">
-          <span class="timeline-marker">{% if i < current_index %}✓{% else %}{{ loop.index }}{% endif %}</span>
-          <div class="timeline-body">
-            <span class="timeline-title">{{ stage }}</span>
-            <span class="timeline-desc">{{ descriptions[stage] }}</span>
-          </div>
-        </li>
-      {% endfor %}
-    </ol>
-  </section>
+  <article class="document" id="document">
+    <!-- Document letterhead -->
+    <header class="doc-head">
+      <div class="doc-brand">
+        <img class="doc-logo" src="{{ url_for('images', filename='logo-white.png') }}" alt="Kadisco logo" />
+        <div class="doc-brand-text">
+          <strong>KADISCO MANUFACTURING</strong>
+          <span>Procurement Department</span>
+          <span>Addis Ababa · Ethiopia</span>
+        </div>
+      </div>
+      <div class="doc-title-block">
+        <span class="doc-title">{{ doc_type }}</span>
+        <table class="doc-meta-table">
+          <tr><th>Document No.</th><td>{{ doc_no }}</td></tr>
+          <tr><th>Date</th><td>{{ doc_date }}</td></tr>
+        </table>
+      </div>
+    </header>
 
-  <div class="detail-side">
-    <!-- Request facts -->
-    <section class="card">
-      <div class="card-head"><h2>Request Details</h2></div>
-      <dl class="detail-list">
-        <div><dt>Material</dt><dd>{{ r['material_name'] }}</dd></div>
-        <div><dt>Quantity</dt><dd class="mono">{{ r['quantity'] }}</dd></div>
-        <div><dt>Supplier</dt><dd>{{ r['supplier_name'] or '—' }}</dd></div>
-        <div><dt>Price</dt><dd class="mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</dd></div>
-        <div><dt>Created</dt><dd class="mono">{{ r['created_at'] }}</dd></div>
-      </dl>
+    <div class="doc-rule"></div>
+
+    <!-- Header fields -->
+    <section class="doc-fields">
+      <div class="doc-field">
+        <span class="doc-label">Requested By</span>
+        <span class="doc-blank">Production Department</span>
+      </div>
+      <div class="doc-field">
+        <span class="doc-label">Department</span>
+        <span class="doc-blank">Manufacturing</span>
+      </div>
+      <div class="doc-field">
+        <span class="doc-label">Supplier</span>
+        <span class="doc-blank">{{ r['supplier_name'] or '—' }}</span>
+      </div>
+      <div class="doc-field">
+        <span class="doc-label">Current Stage</span>
+        <span class="doc-blank">{{ r['stage'] }}</span>
+      </div>
     </section>
 
-    <!-- Read-only department statuses -->
+    <h3 class="doc-section-title">Requested Items</h3>
+
+    <table class="doc-table">
+      <thead>
+        <tr>
+          <th class="col-no">#</th>
+          <th>Material Description</th>
+          <th class="col-uom">Unit of Measure</th>
+          <th class="col-qty">Quantity</th>
+          <th class="col-money">Unit Price</th>
+          <th class="col-money">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="col-no">1</td>
+          <td class="cell-strong">{{ r['material_name'] }}</td>
+          <td class="col-uom">{{ r['unit_of_measure'] }}</td>
+          <td class="col-qty mono">{{ r['quantity'] }}</td>
+          <td class="col-money mono">
+            {{ '%.2f'|format(r['price'] / r['quantity']) if r['price'] is not none and r['quantity'] else '—' }}
+          </td>
+          <td class="col-money mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="doc-total-label">Total Quoted Price</td>
+          <td class="col-money mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Approval statuses -->
+    <h3 class="doc-section-title">Approval &amp; Processing</h3>
+    <div class="doc-approvals">
+      <div class="doc-approval">
+        <span class="doc-approval-dept">Procurement</span>
+        <span class="badge {{ r['procurement_status']|status_class }}">{{ r['procurement_status'] }}</span>
+        <span class="doc-sign-line doc-sign-line--sm"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+      <div class="doc-approval">
+        <span class="doc-approval-dept">Management</span>
+        <span class="badge {{ r['management_approval_status']|status_class }}">{{ r['management_approval_status'] }}</span>
+        <span class="doc-sign-line doc-sign-line--sm"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+      <div class="doc-approval">
+        <span class="doc-approval-dept">Warehouse</span>
+        <span class="badge {{ r['warehouse_status']|status_class }}">{{ r['warehouse_status'] }}</span>
+        <span class="doc-sign-line doc-sign-line--sm"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+      <div class="doc-approval">
+        <span class="doc-approval-dept">Finance</span>
+        <span class="badge {{ r['finance_payment_status']|status_class }}">{{ r['finance_payment_status'] }}</span>
+        <span class="doc-sign-line doc-sign-line--sm"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+    </div>
+
+    <footer class="doc-sign">
+      <div class="doc-sign-block">
+        <span class="doc-sign-label">Prepared By (Procurement)</span>
+        <span class="doc-sign-line"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+      <div class="doc-sign-block">
+        <span class="doc-sign-label">Authorised By (Management)</span>
+        <span class="doc-sign-line"></span>
+        <span class="doc-sign-date">Signature &amp; Date</span>
+      </div>
+    </footer>
+  </article>
+
+  <!-- Operational panels (application chrome — not part of the printed document) -->
+  <div class="detail-grid">
     <section class="card">
-      <div class="card-head"><h2>Department Status</h2></div>
-      <dl class="detail-list">
-        <div><dt>Procurement</dt><dd><span class="badge {{ r['procurement_status']|status_class }}">{{ r['procurement_status'] }}</span></dd></div>
-        <div><dt>Management Approval</dt><dd><span class="badge {{ r['management_approval_status']|status_class }}">{{ r['management_approval_status'] }}</span></dd></div>
-        <div><dt>Warehouse</dt><dd><span class="badge {{ r['warehouse_status']|status_class }}">{{ r['warehouse_status'] }}</span></dd></div>
-        <div><dt>Finance Payment</dt><dd><span class="badge {{ r['finance_payment_status']|status_class }}">{{ r['finance_payment_status'] }}</span></dd></div>
-      </dl>
+      <div class="card-head"><h2>Workflow Timeline</h2></div>
+      <ol class="timeline">
+        {% for stage in stages %}
+          {% set i = loop.index0 %}
+          <li class="timeline-item {{ 'is-done' if i < current_index else 'is-current' if i == current_index else 'is-upcoming' }}">
+            <span class="timeline-marker">{% if i < current_index %}✓{% else %}{{ loop.index }}{% endif %}</span>
+            <div class="timeline-body">
+              <span class="timeline-title">{{ stage }}</span>
+              <span class="timeline-desc">{{ descriptions[stage] }}</span>
+            </div>
+          </li>
+        {% endfor %}
+      </ol>
     </section>
 
-    <!-- Current action (depends on stage) -->
     <section class="card action-card">
       <div class="card-head"><h2>Action Required</h2></div>
 
@@ -125,4 +221,23 @@
     </section>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script>
+  document.getElementById('download-pdf').addEventListener('click', function () {
+    if (typeof html2pdf === 'undefined') {
+      alert('PDF export is unavailable (the library could not be loaded). Check your connection.');
+      return;
+    }
+    html2pdf().set({
+      margin: 0,
+      filename: '{{ doc_no }}.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+      jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+    }).from(document.getElementById('document')).save();
+  });
+</script>
 {% endblock %}

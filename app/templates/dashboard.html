@@ -8,7 +8,7 @@
     <h1>Material Requests</h1>
     <p>Simulated end-to-end workflow across Production, Procurement, Management, Warehouse and Finance.</p>
   </div>
-  <button class="btn btn--primary js-new">+ New Material Request</button>
+  <a class="btn btn--primary" href="{{ url_for('main.new_request') }}">+ New Material Request</a>
 </div>
 
 <div class="kpi-grid">
@@ -58,7 +58,7 @@
         <tr>
           <td class="mono">#{{ r['request_id'] }}</td>
           <td class="cell-strong">{{ r['material_name'] }}</td>
-          <td class="mono">{{ r['quantity'] }}</td>
+          <td class="mono">{{ r['quantity'] }} {{ r['unit_of_measure'] }}</td>
           <td>{{ r['supplier_name'] or '—' }}</td>
           <td class="mono">{{ '%.2f'|format(r['price']) if r['price'] is not none else '—' }}</td>
           <td><span class="badge badge--stage">{{ r['stage'] }}</span></td>
@@ -86,31 +86,4 @@
     </table>
   </div>
 </section>
-
-<!-- New request modal (simulated Production input) -->
-<dialog id="new-dialog" class="modal">
-  <form method="post" action="{{ url_for('main.create_request') }}">
-    <h3>New Material Request</h3>
-    <p class="modal-hint">Simulates a request raised by the <strong>Production</strong> department.
-      All statuses start as <strong>Pending</strong>.</p>
-    <div class="field">
-      <label for="material_name">Material Name</label>
-      <input id="material_name" name="material_name" type="text" placeholder="e.g. Cotton Fabric 40s" required />
-    </div>
-    <div class="field">
-      <label for="quantity">Quantity</label>
-      <input id="quantity" name="quantity" type="number" min="1" step="1" placeholder="e.g. 500" required />
-    </div>
-    <div class="modal-actions">
-      <button type="button" class="btn btn--ghost js-close-new">Cancel</button>
-      <button type="submit" class="btn btn--primary">Submit Request</button>
-    </div>
-  </form>
-</dialog>
-
-<script>
-  const newDialog = document.getElementById('new-dialog');
-  document.querySelector('.js-new').addEventListener('click', () => newDialog.showModal());
-  document.querySelector('.js-close-new').addEventListener('click', () => newDialog.close());
-</script>
 {% endblock %}

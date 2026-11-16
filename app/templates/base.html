@@ -1,9 +1,18 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{% block title %}Kadisco ERP · Procurement{% endblock %}</title>
+  <script>
+    // Apply the saved theme before first paint to avoid a flash of the wrong theme.
+    (function () {
+      try {
+        var saved = localStorage.getItem('kadisco-theme');
+        document.documentElement.setAttribute('data-theme', saved === 'dark' ? 'dark' : 'light');
+      } catch (e) { /* localStorage unavailable */ }
+    })();
+  </script>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
 </head>
 <body>
@@ -11,7 +20,8 @@
     <!-- Sidebar navigation -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <span class="brand-mark">K</span>
+        <img class="brand-logo logo-for-light" src="{{ url_for('images', filename='logo-white.png') }}" alt="Kadisco logo" />
+        <img class="brand-logo logo-for-dark" src="{{ url_for('images', filename='logo-dark.png') }}" alt="Kadisco logo" />
         <div class="brand-text">
           <strong>Kadisco ERP</strong>
           <small>Procurement Module</small>
@@ -51,6 +61,10 @@
         <div class="topbar-title">{% block page_title %}Procurement{% endblock %}</div>
         <div class="topbar-right">
           <span class="env-tag">Prototype</span>
+          <button type="button" class="theme-toggle js-theme-toggle" aria-label="Toggle colour theme" title="Toggle light / dark theme">
+            <span class="theme-toggle-icon theme-toggle-icon--light">☀</span>
+            <span class="theme-toggle-icon theme-toggle-icon--dark">☾</span>
+          </button>
           <div class="avatar avatar--sm">PM</div>
         </div>
       </header>
@@ -70,5 +84,19 @@
       </main>
     </div>
   </div>
+
+  <script>
+    (function () {
+      var btn = document.querySelector('.js-theme-toggle');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', next);
+          try { localStorage.setItem('kadisco-theme', next); } catch (e) { /* ignore */ }
+        });
+      }
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
 </body>
 </html>

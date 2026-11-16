@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Requisition · Kadisco ERP{% endblock %}
+{% block page_title %}New Purchase Requisition{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb">
+  <a href="{{ url_for('main.dashboard') }}">Dashboard</a>
+  <span class="crumb-sep">/</span>
+  <span>New Requisition</span>
+</nav>
+
+<div class="doc-page">
+  <div class="doc-toolbar">
+    <a class="btn btn--ghost btn--sm" href="{{ url_for('main.dashboard') }}">‹ Back to Dashboard</a>
+    <button type="button" class="btn btn--primary btn--sm" id="download-pdf">⤓ Download as PDF</button>
+  </div>
+
+  <form method="post" action="{{ url_for('main.create_request') }}" id="requisition-form">
+    <article class="document" id="document">
+      <!-- Document letterhead -->
+      <header class="doc-head">
+        <div class="doc-brand">
+          <img class="doc-logo" src="{{ url_for('images', filename='logo-white.png') }}" alt="Kadisco logo" />
+          <div class="doc-brand-text">
+            <strong>KADISCO MANUFACTURING</strong>
+            <span>Procurement Department</span>
+            <span>Addis Ababa · Ethiopia</span>
+          </div>
+        </div>
+        <div class="doc-title-block">
+          <span class="doc-title">Purchase Requisition</span>
+          <table class="doc-meta-table">
+            <tr><th>Document No.</th><td class="doc-writein">PR-____</td></tr>
+            <tr><th>Date</th><td>{{ today }}</td></tr>
+          </table>
+        </div>
+      </header>
+
+      <div class="doc-rule"></div>
+
+      <!-- Header fields (formal blank underline fields) -->
+      <section class="doc-fields">
+        <div class="doc-field">
+          <span class="doc-label">Requested By</span>
+          <span class="doc-blank">Production Department</span>
+        </div>
+        <div class="doc-field">
+          <span class="doc-label">Department</span>
+          <span class="doc-blank">Manufacturing</span>
+        </div>
+        <div class="doc-field">
+          <span class="doc-label">Status</span>
+          <span class="doc-blank">Pending</span>
+        </div>
+      </section>
+
+      <h3 class="doc-section-title">Requested Items</h3>
+
+      <table class="doc-table">
+        <thead>
+          <tr>
+            <th class="col-no">#</th>
+            <th>Material Description</th>
+            <th class="col-uom">Unit of Measure</th>
+            <th class="col-qty">Quantity</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-no">1</td>
+            <td class="cell-material">
+              <div class="combo" id="material-combo">
+                <input type="text" class="combo-input" id="material-search" name="material_search"
+                       placeholder="Search material…" autocomplete="off" role="combobox"
+                       aria-expanded="false" aria-controls="combo-list" aria-autocomplete="list" />
+                <button type="button" class="combo-toggle js-combo-toggle" aria-label="Show material list">▾</button>
+                <input type="hidden" name="material_id" id="material_id" />
+                <ul class="combo-list" id="combo-list" role="listbox" hidden>
+                  {% for m in materials %}
+                  <li class="combo-option" role="option"
+                      data-id="{{ m['material_id'] }}"
+                      data-name="{{ m['material_name'] }}"
+                      data-unit="{{ m['unit_of_measure'] }}">
+                    <span class="combo-name">{{ m['material_name'] }}</span>
+                    <span class="combo-unit">{{ m['unit_of_measure'] }}</span>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+              <button type="button" class="btn btn--ghost btn--sm js-new-material">+ Create New Material</button>
+            </td>
+            <td class="col-uom"><span class="doc-writein" id="uom-display">—</span></td>
+            <td class="col-qty">
+              <input type="number" class="doc-input doc-input--qty" name="quantity"
+                     min="1" step="1" placeholder="0" inputmode="numeric" required />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <section class="doc-fields doc-fields--stack">
+        <div class="doc-field doc-field--wide">
+          <span class="doc-label">Purpose / Remarks</span>
+          <span class="doc-blank">&nbsp;</span>
+        </div>
+      </section>
+
+      <footer class="doc-sign">
+        <div class="doc-sign-block">
+          <span class="doc-sign-label">Requested By (Production)</span>
+          <span class="doc-sign-line"></span>
+          <span class="doc-sign-date">Signature &amp; Date</span>
+        </div>
+        <div class="doc-sign-block">
+          <span class="doc-sign-label">Approved By (Management)</span>
+          <span class="doc-sign-line"></span>
+          <span class="doc-sign-date">Signature &amp; Date</span>
+        </div>
+      </footer>
+    </article>
+
+    <div class="doc-actions">
+      <a class="btn btn--ghost" href="{{ url_for('main.dashboard') }}">Cancel</a>
+      <button class="btn btn--primary" type="submit">Submit Requisition</button>
+    </div>
+  </form>
+</div>
+
+<!-- Create New Material modal -->
+<dialog id="material-dialog" class="modal">
+  <form id="material-form">
+    <h3>Create New Material</h3>
+    <p class="modal-hint">Adds a new item to the <strong>Materials_Master</strong> table.</p>
+    <div class="field">
+      <label for="new-material-name">Material Name</label>
+      <input id="new-material-name" name="material_name" type="text" placeholder="e.g. Cotton Fabric 40s" required />
+    </div>
+    <div class="field">
+      <label for="new-material-unit">Unit of Measure</label>
+      <input id="new-material-unit" name="unit_of_measure" type="text" placeholder="e.g. Meters, Liters, Pieces" required />
+    </div>
+    <p class="modal-error" id="material-error" hidden></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn--ghost js-close-material">Cancel</button>
+      <button type="submit" class="btn btn--primary">Add Material</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+<script>
+  (function () {
+    var combo = document.getElementById('material-combo');
+    var search = document.getElementById('material-search');
+    var list = document.getElementById('combo-list');
+    var hidden = document.getElementById('material_id');
+    var uomDisplay = document.getElementById('uom-display');
+
+    function options() { return list.querySelectorAll('.combo-option'); }
+
+    function openList() { list.hidden = false; search.setAttribute('aria-expanded', 'true'); }
+    function closeList() { list.hidden = true; search.setAttribute('aria-expanded', 'false'); }
+
+    function filter(term) {
+      var q = term.trim().toLowerCase();
+      var matches = 0;
+      options().forEach(function (opt) {
+        var hit = opt.dataset.name.toLowerCase().indexOf(q) !== -1;
+        opt.hidden = !hit;
+        if (hit) matches++;
+      });
+      list.querySelector('.combo-empty').hidden = matches !== 0;
+    }
+
+    function select(opt) {
+      hidden.value = opt.dataset.id;
+      search.value = opt.dataset.name;
+      uomDisplay.textContent = opt.dataset.unit;
+      closeList();
+    }
+
+    function addEmptyNotice() {
+      var empty = document.createElement('li');
+      empty.className = 'combo-empty';
+      empty.hidden = true;
+      empty.textContent = 'No matches — use “Create New Material”.';
+      list.appendChild(empty);
+    }
+    if (options().length === 0) addEmptyNotice();
+
+    search.addEventListener('focus', openList);
+    search.addEventListener('input', function () {
+      hidden.value = '';
+      uomDisplay.textContent = '—';
+      filter(search.value);
+      openList();
+    });
+    search.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { openList(); e.preventDefault(); }
+      if (e.key === 'Escape') closeList();
+    });
+    list.addEventListener('mousedown', function (e) {
+      var opt = e.target.closest('.combo-option');
+      if (opt) { e.preventDefault(); select(opt); }
+    });
+    document.querySelector('.js-combo-toggle').addEventListener('click', function () {
+      if (list.hidden) { openList(); search.focus(); } else { closeList(); }
+    });
+    document.addEventListener('click', function (e) {
+      if (!combo.contains(e.target)) closeList();
+    });
+
+    document.getElementById('requisition-form').addEventListener('submit', function (e) {
+      if (!hidden.value) {
+        e.preventDefault();
+        openList();
+        search.focus();
+        search.classList.add('is-invalid');
+      }
+    });
+    search.addEventListener('input', function () { search.classList.remove('is-invalid'); });
+
+    // --- Create New Material modal ---
+    var dialog = document.getElementById('material-dialog');
+    var form = document.getElementById('material-form');
+    var error = document.getElementById('material-error');
+
+    document.querySelector('.js-new-material').addEventListener('click', function () {
+      form.reset();
+      error.hidden = true;
+      dialog.showModal();
+    });
+    document.querySelector('.js-close-material').addEventListener('click', function () { dialog.close(); });
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      error.hidden = true;
+      fetch("{{ url_for('main.create_material') }}", { method: 'POST', body: new FormData(form) })
+        .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+        .then(function (result) {
+          if (!result.ok || !result.data.ok) {
+            error.textContent = result.data.error || 'Could not add the material.';
+            error.hidden = false;
+            return;
+          }
+          var m = result.data.material;
+          var opt = document.createElement('li');
+          opt.className = 'combo-option';
+          opt.setAttribute('role', 'option');
+          opt.dataset.id = m.id;
+          opt.dataset.name = m.name;
+          opt.dataset.unit = m.unit;
+          opt.innerHTML = '<span class="combo-name"></span><span class="combo-unit"></span>';
+          opt.querySelector('.combo-name').textContent = m.name;
+          opt.querySelector('.combo-unit').textContent = m.unit;
+          list.insertBefore(opt, list.firstChild);
+          var empty = list.querySelector('.combo-empty');
+          if (empty) empty.hidden = true;
+          select(opt);
+          dialog.close();
+        })
+        .catch(function () {
+          error.textContent = 'Network error — please try again.';
+          error.hidden = false;
+        });
+    });
+
+    // --- Download as PDF ---
+    document.getElementById('download-pdf').addEventListener('click', function () {
+      if (typeof html2pdf === 'undefined') {
+        alert('PDF export is unavailable (the library could not be loaded). Check your connection.');
+        return;
+      }
+      html2pdf().set({
+        margin: 0,
+        filename: 'Purchase-Requisition.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, backgroundColor: '#ffffff', useCORS: true },
+        jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+      }).from(document.getElementById('document')).save();
+    });
+  })();
+</script>
+{% endblock %}

@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from datetime import datetime
+
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from . import repository, workflow
 
@@ -11,6 +22,11 @@ bp = Blueprint("main", __name__)
 
 def _redirect_to_detail(request_id: int):
     return redirect(url_for("main.request_detail", request_id=request_id))
+
+
+def _today() -> str:
+    """Return today's date as it should appear on a printed document."""
+    return datetime.now().strftime("%d %b %Y")
 
 
 @bp.get("/")
@@ -24,9 +40,20 @@ def dashboard():
     )
 
 
+@bp.get("/requests/new")
+def new_request():
+    """Blank Purchase Requisition document for raising a new request."""
+    return render_template(
+        "request_new.html",
+        active_nav="requests",
+        materials=repository.list_materials(),
+        today=_today(),
+    )
+
+
 @bp.get("/requests/<int:request_id>")
 def request_detail(request_id: int):
-    """Detail view with the workflow timeline and the current action."""
+    """Formal document view of a request with its approval statuses and timeline."""
     record = repository.get_request(request_id)
     if record is None:
         abort(404)
@@ -34,6 +61,7 @@ def request_detail(request_id: int):
         "detail.html",
         active_nav="requests",
         r=record,
+        doc_date=record["created_at"][:10],
         stages=workflow.STAGES,
         descriptions=workflow.STAGE_DESCRIPTIONS,
         current_index=workflow.index_of(record["stage"]),
@@ -43,16 +71,43 @@ def request_detail(request_id: int):
 @bp.post("/requests")
 def create_request():
     """Create a new request (simulates Production input) at the 'Requested' stage."""
-    material_name = (request.form.get("material_name") or "").strip()
+    material_raw = (request.form.get("material_id") or "").strip()
     quantity_raw = (request.form.get("quantity") or "").strip()
 
-    if not material_name or not quantity_raw.isdigit() or int(quantity_raw) <= 0:
-        flash("Please provide a material name and a positive quantity.", "error")
-        return redirect(url_for("main.dashboard"))
+    material = repository.get_material(int(material_raw)) if material_raw.isdigit() else None
+    if material is None:
+        flash("Please choose a material from the master list.", "error")
+        return redirect(url_for("main.new_request"))
 
-    request_id = repository.create_request(material_name, int(quantity_raw))
+    if not quantity_raw.isdigit() or int(quantity_raw) <= 0:
+        flash("Please enter a positive quantity.", "error")
+        return redirect(url_for("main.new_request"))
+
+    request_id = repository.create_request(material["material_id"], int(quantity_raw))
     flash(f"Request #{request_id} created and awaiting procurement review.", "success")
     return _redirect_to_detail(request_id)
+
+
+@bp.post("/materials")
+def create_material():
+    """Add an item to the Materials_Master table (used by the request document)."""
+    name = (request.form.get("material_name") or "").strip()
+    unit = (request.form.get("unit_of_measure") or "").strip() or "Units"
+
+    if not name:
+        return jsonify(ok=False, error="Material name is required."), 400
+
+    material_id, created = repository.create_material(name, unit)
+    material = repository.get_material(material_id)
+    return jsonify(
+        ok=True,
+        created=created,
+        material={
+            "id": material["material_id"],
+            "name": material["material_name"],
+            "unit": material["unit_of_measure"],
+        },
+    )
 
 
 @bp.post("/requests/<int:request_id>/start-quoting")
