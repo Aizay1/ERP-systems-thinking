@@ -70,7 +70,7 @@
             <a class="btn btn--sm btn--primary" href="{{ url_for('main.request_detail', request_id=r['request_id']) }}">Open</a>
             <form class="inline-form" method="post"
                   action="{{ url_for('main.delete_request', request_id=r['request_id']) }}"
-                  onsubmit="return confirm('Delete request #{{ r['request_id'] }}?');">
+                  onsubmit="return confirm('Delete request #{{ r.request_id }}?');">
               <button class="btn btn--sm btn--ghost" type="submit">Delete</button>
             </form>
           </td>
